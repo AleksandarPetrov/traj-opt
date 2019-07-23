@@ -12,7 +12,7 @@ parser.add_argument('--njobs', help='number of threads')
 parser.add_argument('--objects', help='number of objects')
 args = parser.parse_args()
 
-dt = args.dt # descretization step, in days
+dt = int(args.dt) # descretization step, in days
 output_prefix = args.output+'/'
 
 # Make the tmp folder if doesn't exist
@@ -38,12 +38,12 @@ def full_process(obj_idx_tuple):
     np.save(output_prefix+str(id_start).zfill(3)+'_'+str(id_end).zfill(3), DV_matrix)
 
 # gtoc2gr2_objects = np.arange(96,271+1)
-gtoc2gr2_objects = np.arange(96,96+args.objects)
+gtoc2gr2_objects = np.arange(96,96+int(args.objects))
 all_pairs = list()
 for i in gtoc2gr2_objects:
     for j in gtoc2gr2_objects:
         if i != j:
             all_pairs.append((i,j))
 
-p = ProcessingPool(args.njobs)
+p = ProcessingPool(int(args.njobs))
 p.map(full_process, all_pairs)
