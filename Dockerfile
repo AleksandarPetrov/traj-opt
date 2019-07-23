@@ -19,7 +19,7 @@ RUN mkdir /pykep \
  && cd /pykep \
  && git init \
  && git remote add origin https://github.com/esa/pykep.git \
- && git fetch origin 8f9c098fc918dafbe284c19d267624ff88b81b03 \
+ && git fetch origin +refs/tags/v2.3\
  && git reset --hard FETCH_HEAD \
  && mkdir build \
  && cd build \
@@ -29,4 +29,5 @@ RUN mkdir /pykep \
  && cd / \
  && rm -r pykep
 
-COPY *py /files
+RUN mkdir /files
+COPY *py /files/
