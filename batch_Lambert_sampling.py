@@ -1,10 +1,22 @@
 import numpy as np
+import os
 
 from pathos.multiprocessing import ProcessingPool
 from sample_Lambert import process_single_pair
+import argparse
 
-dt = 10 # descretization step, in days
-output_prefix = 'DVmatrices_gtoc2gr2/'
+parser = argparse.ArgumentParser()
+parser.add_argument('--dt', help='dt')
+parser.add_argument('--output', help='output folder')
+parser.add_argument('--njobs', help='number of threads')
+args = parser.parse_args()
+
+dt = args['dt'] # descretization step, in days
+output_prefix = args['output']+'/'
+
+# Make the tmp folder if doesn't exist
+if not os.path.exists(output_prefix):
+    os.makedirs(output_prefix)
 
 range_departure_date = (dt, 10000) # in MJD2000
 range_transfer_duration = (dt, 1000 ) # in days
@@ -25,12 +37,12 @@ def full_process(obj_idx_tuple):
     np.save(output_prefix+str(id_start).zfill(3)+'_'+str(id_end).zfill(3), DV_matrix)
 
 # gtoc2gr2_objects = np.arange(96,271+1)
-gtoc2gr2_objects = np.arange(96,96+20)
+gtoc2gr2_objects = np.arange(96,96+args['dt'])
 all_pairs = list()
 for i in gtoc2gr2_objects:
     for j in gtoc2gr2_objects:
         if i != j:
             all_pairs.append((i,j))
 
-p = ProcessingPool(4)
+p = ProcessingPool(args['njobs'])
 p.map(full_process, all_pairs)
