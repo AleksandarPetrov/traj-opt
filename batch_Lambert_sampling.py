@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dt', help='dt')
 parser.add_argument('--output', help='output folder')
 parser.add_argument('--njobs', help='number of threads')
+parser.add_argument('--objects', help='number of objects')
 args = parser.parse_args()
 
 dt = args['dt'] # descretization step, in days
