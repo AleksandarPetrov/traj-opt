@@ -26,7 +26,7 @@ departure_dates = np.arange(start=range_departure_date[0], stop=range_departure_
 transfer_durations = np.arange(start=range_transfer_duration[0], stop=range_transfer_duration[1]+1e-5, step=dt)
 
 def full_process(obj_idx_tuple):
-    print(obj_idx_tuple)
+
     id_start = int(obj_idx_tuple[0])
     id_end = int(obj_idx_tuple[1])
 
@@ -36,6 +36,7 @@ def full_process(obj_idx_tuple):
                                     transfer_durations=transfer_durations,
                                     dt=dt)
     np.save(output_prefix+str(id_start).zfill(3)+'_'+str(id_end).zfill(3), DV_matrix)
+
 
 # gtoc2gr2_objects = np.arange(96,271+1)
 gtoc2gr2_objects = np.arange(96,96+int(args.objects))

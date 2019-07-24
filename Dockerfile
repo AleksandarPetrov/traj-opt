@@ -12,22 +12,21 @@ RUN apt-get update && apt-get install -y \
     libboost-all-dev \
  && rm -rf /var/lib/apt/lists/*
 
-RUN python3.7 -m pip install numpy scipy pygmo matplotlib pathos pyYAML
+RUN python3.7 -m pip install numpy scipy pygmo matplotlib pathos pyYAML pykep
 
 # Install pykep
-RUN mkdir /pykep \
- && cd /pykep \
- && git init \
- && git remote add origin https://github.com/esa/pykep.git \
- && git fetch origin +refs/tags/v2.3\
- && git reset --hard FETCH_HEAD \
- && mkdir build \
- && cd build \
- && cmake ../ -DBUILD_PYKEP="ON"  -DPYTHON_EXECUTABLE="/usr/bin/python3.7m" \
- && make \
- && make install \
- && cd / \
- && rm -r pykep
+# RUN mkdir /pykep \
+#  && cd /pykep \
+#  && git init \
+#  && git remote add origin https://github.com/esa/pykep.git \
+#  && git fetch origin \
+#  && git reset --hard FETCH_HEAD \
+#  && mkdir build \
+#  && cd build \
+#  && cmake ../ -DBUILD_PYKEP="ON"  -DPYTHON_EXECUTABLE="/usr/bin/python3.7m" \
+#  && make \
+#  && make install \
+#  && cd /
 
 RUN mkdir /files
 COPY *py /files/
