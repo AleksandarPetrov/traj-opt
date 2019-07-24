@@ -8,17 +8,27 @@ from multiprocessing import Process, Manager, Value, Queue, Event, Array
 import queue as q
 from direct_concatenation import direct_concatenation
 
-# Fix the random seed for reproducibility
+# Fix the random seed for realative reproducibility
 np.random.seed(17)
 
+# Process arguments
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--input', help='input folder')
+parser.add_argument('--output', help='output folder')
+parser.add_argument('--njobs', help='number of threads')
+parser.add_argument('--dvtol', help='best DV tolerance')
+parser.add_argument('--objects', help='number of objects')
+parser.add_argument('--results', help='results filename')
+args = parser.parse_args()
+
 # Configuration
-input_prefix = 'DVmatrices_gtoc2gr2_20_wait_adjusted/'
-tmp_prefix = 'DVmatrices_gtoc2gr2_10_subsample2/'
-objects = np.arange(96,96+10)
-N_THREADS = 3
+input_prefix = args.input+'/'
+tmp_prefix = args.output+'/'
+objects = np.arange(96,96+int(args.objects))
+N_THREADS = int(args.njobs)
 POOL_LIMIT_TASKS = N_THREADS * 10
-DV_TOLERANCE = 5000  #Will make sure to have the sequences that cannot improve the min, but can come this close
-DOWNSAMPLING =  1
+DV_TOLERANCE = float(args.dvtol)  #Will make sure to have the sequences that cannot improve the min, but can come this close
 
 # Make the tmp folder if doesn't exist
 if not os.path.exists(tmp_prefix):
@@ -39,7 +49,6 @@ SD['processed_count'] = 0
 SD['count_3seq_concats'] = 0
 SD['count_5seq_concats'] = 0
 SD['DV_TOLERANCE'] = DV_TOLERANCE
-SD['DOWNSAMPLING'] = DOWNSAMPLING
 
 
 # Initialize DV caches
@@ -105,8 +114,8 @@ def dc_3obj(seq, SD, updateQueue):
     # Check if it has any chance to participate in a sequnce that reduces the current total min DV
     if SD['cache_2obj'][(seq[0], seq[1])] + SD['cache_2obj'][(seq[1], seq[2])] <= SD['CURR_MIN'].value  + SD['DV_TOLERANCE']:
         t = time.time()
-        A = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:2])))+'.npy')[SD['DOWNSAMPLING']-1::SD['DOWNSAMPLING']]
-        B = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[1:])))+'.npy')[SD['DOWNSAMPLING']-1::SD['DOWNSAMPLING']]
+        A = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:2])))+'.npy')
+        B = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[1:])))+'.npy')
         # print("LOADING TIME %.4f" % (time.time()-t))
         t = time.time()
         C = direct_concatenation(A, B)
@@ -270,10 +279,10 @@ for k,v in SD['cache_5obj'].items():
     if np.isinf(v): marked_for_removal.append(k)
 for k in marked_for_removal: SD['cache_5obj'].pop(k)
 
-sorted_sequences = dict(sorted(SD['cache_5obj'].items(), key=lambda kv: kv[1]))
+sorted_sequences = dict(sorted(SD['cache_5obj'].items(), key=lambda k: k[1]))
 
 # filename = 'results_{date:%Y-%m-%d_%H:%M:%S}.yml'.format(date=datetime.datetime.now())
-filename = 'results_10_subsample2.yml'
+filename = args.results
 with open(filename, 'w') as outfile:
     for seq,val in sorted_sequences.items():
         outfile.write(str(seq) + ": " + str(val) + "\n")

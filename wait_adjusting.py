@@ -3,6 +3,7 @@ import os
 import glob
 from pathos.multiprocessing import ProcessingPool
 
+import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', help='input folder')
 parser.add_argument('--output', help='output folder')
