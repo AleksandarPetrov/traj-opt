@@ -37,7 +37,6 @@ def full_process(obj_idx_tuple):
                                     dt=dt)
     np.save(output_prefix+str(id_start).zfill(3)+'_'+str(id_end).zfill(3), DV_matrix)
 
-
 # gtoc2gr2_objects = np.arange(96,271+1)
 gtoc2gr2_objects = np.arange(96,96+int(args.objects))
 all_pairs = list()

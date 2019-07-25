@@ -21,7 +21,7 @@ def process_single_pair(id_start, id_end, departure_dates, transfer_durations, d
             r_end, v_end = obj_end.eph(t_arr)
 
             # Solve the Lambert problem
-            lambert_solution = pykep.lambert_problem(r_start, r_end, t_flight, pykep.MU_SUN, 5)
+            lambert_solution = pykep.lambert_problem(r_start, r_end, t_flight, pykep.MU_SUN)
 
             # Compute the DV
             DV_start = np.min(np.linalg.norm(np.array(lambert_solution.get_v1()) - np.array(v_start)[np.newaxis, :], axis=1))
