@@ -136,8 +136,12 @@ def dc_5obj(seq, SD, updateQueue):
         A = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:3])))+'.npy')
         B = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[2:])))+'.npy')
         C = direct_concatenation(A, B)
-        np.save(SD['tmp_prefix']+"_".join(tuple(map(lambda x: str(x).zfill(3),seq))), C)
         Cmin = np.min(C.flatten())
+
+        # save if the the min is within DV_TOLERANCE of the current min
+        if Cmin <= SD['CURR_MIN'].value + SD['DV_TOLERANCE']:
+            np.save(SD['tmp_prefix']+"_".join(tuple(map(lambda x: str(x).zfill(3),seq))), C)
+
     else:
         Cmin = np.inf
 
