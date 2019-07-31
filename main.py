@@ -7,6 +7,7 @@ import datetime
 from multiprocessing import Process, Manager, Value, Queue, Event, Array
 import queue as q
 from direct_concatenation import direct_concatenation
+import copy
 
 # Fix the random seed for realative reproducibility
 np.random.seed(17)
@@ -20,6 +21,7 @@ parser.add_argument('--njobs', help='number of threads')
 parser.add_argument('--dvtol', help='best DV tolerance')
 parser.add_argument('--objects', help='number of objects')
 parser.add_argument('--results', help='results filename')
+parser.add_argument('--inmemory', type=bool, default=False, help='whether to keep sequences of 3 in memory')
 args = parser.parse_args()
 
 # Configuration
@@ -72,6 +74,7 @@ for i in objects:
                 cache_3obj[(i, j, k)] = -2
 
 SD['cache_3obj'] = manager.dict(cache_3obj)
+SD['cache_3obj_storage'] = manager.dict()
 
 SD['cache_5obj'] = dict()
 
@@ -113,28 +116,35 @@ class FullSequenceIterator:
 def dc_3obj(seq, SD, updateQueue):
     # Check if it has any chance to participate in a sequnce that reduces the current total min DV
     if SD['cache_2obj'][(seq[0], seq[1])] + SD['cache_2obj'][(seq[1], seq[2])] <= SD['CURR_MIN'].value  + SD['DV_TOLERANCE']:
-        t = time.time()
+        # t = time.time()
         A = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:2])))+'.npy')
         B = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[1:])))+'.npy')
         # print("LOADING TIME %.4f" % (time.time()-t))
-        t = time.time()
+        # t = time.time()
         C = direct_concatenation(A, B)
         # print("CONCAT TIME %.4f" % (time.time()-t))
-        t = time.time()
+        # t = time.time()
         np.save(SD['tmp_prefix']+"_".join(tuple(map(lambda x: str(x).zfill(3),seq))), C)
         # print("SAVE TIME %.4f" % (time.time()-t))
         Cmin = np.min(C.flatten())
     else:
         Cmin = np.inf
 
-    updateQueue.put((tuple(seq), Cmin))
+    updateQueue.put((tuple(seq), Cmin, C))
 
 def dc_5obj(seq, SD, updateQueue):
     # Check if it has any chance to participate in a sequnce that reduces the current total min DV
     # print("CURR MIN: %.04f, this best shot: %.04f" %(SD['CURR_MIN'].value, SD['cache_3obj'][(seq[0], seq[1], seq[2])] + SD['cache_3obj'][(seq[2], seq[3], seq[4])]))
     if SD['cache_3obj'][(seq[0], seq[1], seq[2])] + SD['cache_3obj'][(seq[2], seq[3], seq[4])] <= SD['CURR_MIN'].value + SD['DV_TOLERANCE']:
-        A = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:3])))+'.npy')
-        B = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[2:])))+'.npy')
+        try:
+            A = SD['cache_3obj_storage'][(seq[0], seq[1], seq[2])]
+            B = SD['cache_3obj_storage'][(seq[2], seq[3], seq[4])]
+            #print("Loaded from storage")
+        except KeyError:   
+            A = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:3])))+'.npy')
+            B = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[2:])))+'.npy')
+            #print("NOT loaded from storage", seq)
+            #print("keys: ", [k for k in SD['cache_3obj_storage']])
         C = direct_concatenation(A, B)
         Cmin = np.min(C.flatten())
 
@@ -145,13 +155,13 @@ def dc_5obj(seq, SD, updateQueue):
     else:
         Cmin = np.inf
 
-    updateQueue.put((tuple(seq), Cmin))
+    updateQueue.put((tuple(seq), Cmin, None))
 
 def worker_thread(taskQueue, updateQueue, SD, stopEvent):
     # Continuously check if there are new tasks and process them if there are
     # After finishing adding tasks stopEvent would be set, continue processing until
     # the queue is empty
-    while not (stopEvent.is_set() and taskQueue.empty()):
+    while not stopEvent.is_set():
         try:
             task = taskQueue.get(block=True, timeout=1)
 
@@ -166,10 +176,12 @@ def worker_thread(taskQueue, updateQueue, SD, stopEvent):
         except q.Empty:
             pass
 
-def processUpdateQueue():
-    try:
-        while True:
-            seq, Cmin = updateQueue.get_nowait()
+def update_thread(updateQueue, SD, stopEvent):
+    while not stopEvent.is_set():
+        try:
+            seq, Cmin, C = updateQueue.get(block=True)
+            if args.inmemory and len(seq) == 3:
+                SD['cache_3obj_storage'][tuple(seq)] = copy.deepcopy(C)
             if len(seq)==3:
                 SD['cache_3obj'][seq] = Cmin
                 if Cmin<np.inf:
@@ -183,16 +195,50 @@ def processUpdateQueue():
                     SD['CURR_MIN'].value = Cmin
                     SD['CURR_MIN_SEQ'] = seq
                 SD['processed_count'] += 1
-
             # print("Processed: %s, min DV=%.02f" % (str(seq), Cmin))
-    except q.Empty:
-        pass
+            # print("processUpdateQueue", SD['processed_count'], updateQueue.qsize())
+        except q.Empty:
+            pass
+ 
+
+# def processUpdateQueue():
+#     print("start processUpdateQueue", SD['processed_count'])
+#     try:
+#         counter=0
+#         emptyexception=False
+#         while True:
+#             seq, Cmin, C = updateQueue.get(block=False)
+#             if args.inmemory and len(seq) == 3:
+#                 SD['cache_3obj_storage'][tuple(seq)] = copy.deepcopy(C)
+#             if len(seq)==3:
+#                 SD['cache_3obj'][seq] = Cmin
+#                 if Cmin<np.inf:
+#                     SD['count_3seq_concats'] += 1
+# 
+#             elif len(seq)==5:
+#                 SD['cache_5obj'][seq] = Cmin
+#                 if Cmin<np.inf:
+#                     SD['count_5seq_concats'] += 1
+#                 if Cmin < SD['CURR_MIN'].value:
+#                     SD['CURR_MIN'].value = Cmin
+#                     SD['CURR_MIN_SEQ'] = seq
+#                 SD['processed_count'] += 1
+#             # print("Processed: %s, min DV=%.02f" % (str(seq), Cmin))
+#             counter+=1
+#     except q.Empty:
+#         emptyexception = True
+#         pass
+#     print("end processUpdateQueue", SD['processed_count'], counter, emptyexception, updateQueue.qsize())
 
 # Start the worker threads
 workers = list()
 for _ in range(N_THREADS):
     workers.append(Process(target=worker_thread, args=(taskQueue, updateQueue, SD, stopEvent)))
     workers[-1].start()
+
+# Start the update thread
+updater = Process(target=update_thread, args=(updateQueue, SD, stopEvent))
+updater.start()
 
 # Start the main processes
 total_count = len(objects)*(len(objects)-1)*(len(objects)-2)*(len(objects)-3)*(len(objects)-4)
@@ -209,13 +255,18 @@ try:
         # First fill in the on_hold list if neccessary and possible
         while iter.served < iter.limit and len(onhold_list) < 50:
             onhold_list.append(iter.__next__())
+        
+        # Wait to make sure that the updateQueue is (approximately) fully processed:
+        while updateQueue.qsize() > 100:
+            print("update q waiting: ", updateQueue.qsize())
+            time.sleep(0.1)
 
         # Add new tasks until we fill the task queue capacity
         marked_for_removal = list()
         for onhold_idx in np.random.choice(np.arange(len(onhold_list)), size=len(onhold_list), replace=False):
 
             # Continuously check if anything is processed and needs to be updated in the caches:
-            processUpdateQueue()
+            # processUpdateQueue()
 
             # if not taskQueue.full():
             sequence = onhold_list[onhold_idx]
@@ -259,16 +310,24 @@ try:
                   f"ACT CON 5: {SD['count_5seq_concats']:{digits}d} | " +
                   f"FULL SEQ: {SD['processed_count']:{digits}d} / {iter.limit} | " +
                   f"MIN DV: {cmDV:8.1f} | REM: {remaining_time:5.2f} [MIN]")
-
+            print("On hold length: %d, taskQ: %d, updateQ: %d" % (len(onhold_list), taskQueue.qsize(), updateQueue.qsize()))
 except KeyboardInterrupt:
     print("\nSIGINT DETECTED! CLOSING THREADS AND SAVING DATA!\n")
 # Wait for the threads to finish
+while SD['processed_count'] < iter.limit:
+    time.sleep(1)
+    print("Waiting for the jobs to finish")
+# Ensure that the last jobs have time to finish
+time.sleep(10)
 stopEvent.set()
+print("stopEvent set")
 for p in workers:
     p.join()
+updater.join()
+print("Threads joined")
 # Record the last results
-processUpdateQueue()
-
+# processUpdateQueue()
+print("Update Queue processed")
 print("FINISHED all %d/%d sequences!" % (SD['processed_count'], iter.limit))
 print("MIN DV: ", SD['CURR_MIN'].value)
 print("MIN DV SEQ: ", SD['CURR_MIN_SEQ'])
