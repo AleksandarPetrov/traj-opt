@@ -8,6 +8,7 @@ from multiprocessing import Process, Manager, Value, Queue, Event, Array
 import queue as q
 from direct_concatenation import direct_concatenation
 import copy
+import ctypes
 
 # Fix the random seed for realative reproducibility
 np.random.seed(17)
@@ -23,6 +24,9 @@ parser.add_argument('--objects', help='number of objects')
 parser.add_argument('--results', help='results filename')
 parser.add_argument('--inmemory', type=bool, default=False, help='whether to keep sequences of 3 in memory')
 args = parser.parse_args()
+
+if args.inmemory:
+    print("In-memory storage of 3-sequences enabled")
 
 # Configuration
 input_prefix = args.input+'/'
@@ -44,12 +48,12 @@ taskQueue = Queue(maxsize=POOL_LIMIT_TASKS)
 updateQueue = Queue()
 stopEvent = Event()
 SD['CURR_MIN'] = Value('f', np.inf)
-SD['CURR_MIN_SEQ'] = None
+SD['CURR_MIN_SEQ'] = Array(ctypes.c_ulong, 5)
 SD['input_prefix'] = input_prefix
 SD['tmp_prefix'] = tmp_prefix
-SD['processed_count'] = 0
-SD['count_3seq_concats'] = 0
-SD['count_5seq_concats'] = 0
+SD['processed_count'] = Value('i', 0)
+SD['count_3seq_concats'] = Value('i', 0)
+SD['count_5seq_concats'] = Value('i', 0)
 SD['DV_TOLERANCE'] = DV_TOLERANCE
 
 
@@ -76,7 +80,7 @@ for i in objects:
 SD['cache_3obj'] = manager.dict(cache_3obj)
 SD['cache_3obj_storage'] = manager.dict()
 
-SD['cache_5obj'] = dict()
+SD['cache_5obj'] = manager.dict()
 
 
 # Create a 5-obj iterator
@@ -179,56 +183,24 @@ def worker_thread(taskQueue, updateQueue, SD, stopEvent):
 def update_thread(updateQueue, SD, stopEvent):
     while not stopEvent.is_set():
         try:
-            seq, Cmin, C = updateQueue.get(block=True)
+            seq, Cmin, C = updateQueue.get(block=True, timeout=1)
             if args.inmemory and len(seq) == 3:
                 SD['cache_3obj_storage'][tuple(seq)] = copy.deepcopy(C)
             if len(seq)==3:
                 SD['cache_3obj'][seq] = Cmin
                 if Cmin<np.inf:
-                    SD['count_3seq_concats'] += 1
+                    SD['count_3seq_concats'].value = SD['count_3seq_concats'].value + 1
 
             elif len(seq)==5:
                 SD['cache_5obj'][seq] = Cmin
                 if Cmin<np.inf:
-                    SD['count_5seq_concats'] += 1
+                    SD['count_5seq_concats'].value = SD['count_5seq_concats'].value + 1
                 if Cmin < SD['CURR_MIN'].value:
                     SD['CURR_MIN'].value = Cmin
-                    SD['CURR_MIN_SEQ'] = seq
-                SD['processed_count'] += 1
-            # print("Processed: %s, min DV=%.02f" % (str(seq), Cmin))
-            # print("processUpdateQueue", SD['processed_count'], updateQueue.qsize())
+                    for idx in range(len(seq)): SD['CURR_MIN_SEQ'][idx] = seq[idx]
+                SD['processed_count'].value = SD['processed_count'].value + 1
         except q.Empty:
             pass
- 
-
-# def processUpdateQueue():
-#     print("start processUpdateQueue", SD['processed_count'])
-#     try:
-#         counter=0
-#         emptyexception=False
-#         while True:
-#             seq, Cmin, C = updateQueue.get(block=False)
-#             if args.inmemory and len(seq) == 3:
-#                 SD['cache_3obj_storage'][tuple(seq)] = copy.deepcopy(C)
-#             if len(seq)==3:
-#                 SD['cache_3obj'][seq] = Cmin
-#                 if Cmin<np.inf:
-#                     SD['count_3seq_concats'] += 1
-# 
-#             elif len(seq)==5:
-#                 SD['cache_5obj'][seq] = Cmin
-#                 if Cmin<np.inf:
-#                     SD['count_5seq_concats'] += 1
-#                 if Cmin < SD['CURR_MIN'].value:
-#                     SD['CURR_MIN'].value = Cmin
-#                     SD['CURR_MIN_SEQ'] = seq
-#                 SD['processed_count'] += 1
-#             # print("Processed: %s, min DV=%.02f" % (str(seq), Cmin))
-#             counter+=1
-#     except q.Empty:
-#         emptyexception = True
-#         pass
-#     print("end processUpdateQueue", SD['processed_count'], counter, emptyexception, updateQueue.qsize())
 
 # Start the worker threads
 workers = list()
@@ -258,15 +230,12 @@ try:
         
         # Wait to make sure that the updateQueue is (approximately) fully processed:
         while updateQueue.qsize() > 100:
-            print("update q waiting: ", updateQueue.qsize())
+            # print("update q waiting: ", updateQueue.qsize())
             time.sleep(0.1)
 
         # Add new tasks until we fill the task queue capacity
         marked_for_removal = list()
         for onhold_idx in np.random.choice(np.arange(len(onhold_list)), size=len(onhold_list), replace=False):
-
-            # Continuously check if anything is processed and needs to be updated in the caches:
-            # processUpdateQueue()
 
             # if not taskQueue.full():
             sequence = onhold_list[onhold_idx]
@@ -302,19 +271,23 @@ try:
         if time.time()-last_report_time > 10.0:
             last_report_time=time.time()
             digits = int(np.ceil(np.log10(iter.limit)))
-            remaining_time = (time.time() - time_start) * (iter.limit-SD['processed_count']) / max(SD['processed_count'],1) / 60.0
+            remaining_time = (time.time() - time_start) * (iter.limit-SD['processed_count'].value) / max(SD['processed_count'].value,1) / 60.0
             cmDV = SD['CURR_MIN'].value
+            cnt3 = SD['count_3seq_concats'].value
+            cnt5 = SD['count_5seq_concats'].value
+            cntProcessed = SD['processed_count'].value 
             timestamp = '{date:%H:%M:%S}'.format(date=datetime.datetime.now())
             print(f"{timestamp}> "+
-                  f"ACT CON 3: {SD['count_3seq_concats']:{digits}d} | " +
-                  f"ACT CON 5: {SD['count_5seq_concats']:{digits}d} | " +
-                  f"FULL SEQ: {SD['processed_count']:{digits}d} / {iter.limit} | " +
+                  f"ACT CON 3: {cnt3:{digits}d} | " +
+                  f"ACT CON 5: {cnt5:{digits}d} | " +
+                  f"FULL SEQ: {cntProcessed:{digits}d} / {iter.limit} | " +
                   f"MIN DV: {cmDV:8.1f} | REM: {remaining_time:5.2f} [MIN]")
-            print("On hold length: %d, taskQ: %d, updateQ: %d" % (len(onhold_list), taskQueue.qsize(), updateQueue.qsize()))
+            # print("On hold length: %d, taskQ: %d, updateQ: %d" % (len(onhold_list), taskQueue.qsize(), updateQueue.qsize()))
+            # print(SD['CURR_MIN_SEQ'][:])
 except KeyboardInterrupt:
     print("\nSIGINT DETECTED! CLOSING THREADS AND SAVING DATA!\n")
 # Wait for the threads to finish
-while SD['processed_count'] < iter.limit:
+while SD['processed_count'].value < iter.limit:
     time.sleep(1)
     print("Waiting for the jobs to finish")
 # Ensure that the last jobs have time to finish
@@ -328,11 +301,11 @@ print("Threads joined")
 # Record the last results
 # processUpdateQueue()
 print("Update Queue processed")
-print("FINISHED all %d/%d sequences!" % (SD['processed_count'], iter.limit))
+print("FINISHED all %d/%d sequences!" % (SD['processed_count'].value, iter.limit))
 print("MIN DV: ", SD['CURR_MIN'].value)
-print("MIN DV SEQ: ", SD['CURR_MIN_SEQ'])
-print("Actual concatenations (3obj)", SD['count_3seq_concats'])
-print("Actual concatenations (5obj)", SD['count_5seq_concats'])
+print("MIN DV SEQ: ", SD['CURR_MIN_SEQ'][:])
+print("Actual concatenations (3obj)", SD['count_3seq_concats'].value)
+print("Actual concatenations (5obj)", SD['count_5seq_concats'].value)
 
 # Save the data
 
