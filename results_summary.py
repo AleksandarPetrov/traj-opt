@@ -1,9 +1,9 @@
 import yaml
 import pandas as pd
 
-dt_values = [5, 10, 20, 40, 80]
+dt_values = [10, 20, 40, 80]
 DV_tol = 10000
-results_files = ['results_10obj/10obj_dt%d_results.yml' % dt for dt in dt_values]
+results_files = ['results_20obj/20obj_dt%d_results.yml' % dt for dt in dt_values]
 
 
 
@@ -39,6 +39,6 @@ def process(mode='dv'):
     joined_df = joined_df.sort_values(by=dt_values[0])
     return joined_df
 
-process(mode='dv').to_csv('results_10obj/10obj_dv.csv')
-process(mode='dv_int').to_csv('results_10obj/10obj_dvint.csv')
-process(mode='order').to_csv('results_10obj/10obj_order.csv')
+process(mode='dv').to_csv('results_20obj/20obj_dv.csv')
+process(mode='dv_int').to_csv('results_20obj/12obj_dvint.csv')
+process(mode='order').to_csv('results_20obj/20obj_order.csv')

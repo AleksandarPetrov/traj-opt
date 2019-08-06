@@ -16,10 +16,11 @@ def plot_matrix(DV_matrix, departure_dates, transfer_durations, output_name='DV_
     plt.savefig(output_name, dpi=300)
 
 if __name__=='__main__':
-    output_prefix = 'DVmatrices_gtoc2gr2_subsample2/'
-    filename='096_099_100_098_097'
 
-    dt = 20 # descretization step, in days
+    output_prefix = 'results_20obj/'
+    filename='108_115_098_102_097_dt10'
+
+    dt = 10 # descretization step, in days
 
     range_departure_date = (dt, 10000) # in MJD2000
     range_transfer_duration = (dt, 1000 ) # in days
@@ -27,4 +28,4 @@ if __name__=='__main__':
     departure_dates = np.arange(start=range_departure_date[0], stop=range_departure_date[1]+1e-5, step=dt)
     transfer_durations = np.arange(start=range_transfer_duration[0], stop=range_transfer_duration[1]+1e-5, step=dt)
     DV_matrix = np.load(output_prefix+filename+'.npy')
-    plot_matrix(DV_matrix, departure_dates, transfer_durations, output_name="DV_matrix_subsample2%s"%filename+".png")
+    plot_matrix(DV_matrix, departure_dates, transfer_durations, output_name="DV_matrix_%s"%filename+".png")
