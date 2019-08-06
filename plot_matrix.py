@@ -12,7 +12,6 @@ def plot_matrix(DV_matrix, departure_dates, transfer_durations, output_name='DV_
     idxs_y = np.floor(np.linspace(0, len(transfer_durations)-1, 5)).astype(int)
     plt.xticks(idxs_x, departure_dates[idxs_x])
     plt.yticks(idxs_y, transfer_durations[idxs_y])
-    #plt.gca().invert_yaxis()
     plt.savefig(output_name, dpi=300)
 
 if __name__=='__main__':

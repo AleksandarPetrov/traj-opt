@@ -42,7 +42,6 @@ if not os.path.exists(tmp_prefix):
 
 # Initialize variables to share between the subprocesses.
 manager = Manager()
-# lock = manager.Lock()
 SD = dict()
 taskQueue = Queue(maxsize=POOL_LIMIT_TASKS)
 updateQueue = Queue()
@@ -68,7 +67,6 @@ for i in objects:
 
 SD['cache_2obj'] = manager.dict(cache_2obj)
 
-
 print('Initializing the 3 object cache')
 cache_3obj = dict()
 for i in objects:
@@ -79,14 +77,12 @@ for i in objects:
 
 SD['cache_3obj'] = manager.dict(cache_3obj)
 SD['cache_3obj_storage'] = manager.dict()
-
 SD['cache_5obj'] = manager.dict()
 
 
 # Create a 5-obj iterator
 class FullSequenceIterator:
     def __init__(self, objects, seq_len=5):
-        # self.simple_iterator = itertools.product(objects, repeat=seq_len)
         self.seq_list = list()
         for seq in itertools.product(objects, repeat=seq_len):
             if len(np.unique(seq)) == seq_len: self.seq_list.append(seq)
@@ -103,11 +99,6 @@ class FullSequenceIterator:
         return self
 
     def __next__(self):
-        # Sample from the simple iterator until a sequence with unique entries is found
-        # while True:
-        #     candidate_seq = self.simple_iterator.__next__()
-        #     if len(np.unique(candidate_seq)) == self.seq_len:
-        #         break
         candidate_seq = self.seq_list[self.served]
         self.served+=1
         return candidate_seq
@@ -120,16 +111,10 @@ class FullSequenceIterator:
 def dc_3obj(seq, SD, updateQueue):
     # Check if it has any chance to participate in a sequnce that reduces the current total min DV
     if SD['cache_2obj'][(seq[0], seq[1])] + SD['cache_2obj'][(seq[1], seq[2])] <= SD['CURR_MIN'].value  + SD['DV_TOLERANCE']:
-        # t = time.time()
         A = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:2])))+'.npy')
         B = np.load(SD['input_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[1:])))+'.npy')
-        # print("LOADING TIME %.4f" % (time.time()-t))
-        # t = time.time()
         C = direct_concatenation(A, B)
-        # print("CONCAT TIME %.4f" % (time.time()-t))
-        # t = time.time()
         np.save(SD['tmp_prefix']+"_".join(tuple(map(lambda x: str(x).zfill(3),seq))), C)
-        # print("SAVE TIME %.4f" % (time.time()-t))
         Cmin = np.min(C.flatten())
     else:
         Cmin = np.inf
@@ -143,12 +128,9 @@ def dc_5obj(seq, SD, updateQueue):
         try:
             A = SD['cache_3obj_storage'][(seq[0], seq[1], seq[2])]
             B = SD['cache_3obj_storage'][(seq[2], seq[3], seq[4])]
-            #print("Loaded from storage")
-        except KeyError:   
+        except KeyError:
             A = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[:3])))+'.npy')
             B = np.load(SD['tmp_prefix']+'_'.join(tuple(map(lambda x: str(x).zfill(3),seq[2:])))+'.npy')
-            #print("NOT loaded from storage", seq)
-            #print("keys: ", [k for k in SD['cache_3obj_storage']])
         C = direct_concatenation(A, B)
         Cmin = np.min(C.flatten())
 
@@ -176,7 +158,6 @@ def worker_thread(taskQueue, updateQueue, SD, stopEvent):
                 dc_5obj(task['seq'], SD, updateQueue)
             else:
                 raise Exception("Unknown task function: %s" % task['function'])
-            # print("task processing time: %.06f" % (time.time()-t))
         except q.Empty:
             pass
 
@@ -227,10 +208,9 @@ try:
         # First fill in the on_hold list if neccessary and possible
         while iter.served < iter.limit and len(onhold_list) < 50:
             onhold_list.append(iter.__next__())
-        
+
         # Wait to make sure that the updateQueue is (approximately) fully processed:
         while updateQueue.qsize() > 100:
-            # print("update q waiting: ", updateQueue.qsize())
             time.sleep(0.1)
 
         # Add new tasks until we fill the task queue capacity
@@ -262,7 +242,6 @@ try:
                 taskQueue.put({'function':'dc_3obj', 'seq':seq}, block=True)
                 continue
 
-            # print("Adding %s to the pool" % str(sequence))
             taskQueue.put({'function':'dc_5obj', 'seq':sequence}, block=True)
             marked_for_removal.append(sequence)
 
@@ -275,21 +254,22 @@ try:
             cmDV = SD['CURR_MIN'].value
             cnt3 = SD['count_3seq_concats'].value
             cnt5 = SD['count_5seq_concats'].value
-            cntProcessed = SD['processed_count'].value 
+            cntProcessed = SD['processed_count'].value
             timestamp = '{date:%H:%M:%S}'.format(date=datetime.datetime.now())
             print(f"{timestamp}> "+
                   f"ACT CON 3: {cnt3:{digits}d} | " +
                   f"ACT CON 5: {cnt5:{digits}d} | " +
                   f"FULL SEQ: {cntProcessed:{digits}d} / {iter.limit} | " +
                   f"MIN DV: {cmDV:8.1f} | REM: {remaining_time:5.2f} [MIN]")
-            # print("On hold length: %d, taskQ: %d, updateQ: %d" % (len(onhold_list), taskQueue.qsize(), updateQueue.qsize()))
-            # print(SD['CURR_MIN_SEQ'][:])
+
 except KeyboardInterrupt:
     print("\nSIGINT DETECTED! CLOSING THREADS AND SAVING DATA!\n")
+
 # Wait for the threads to finish
 while SD['processed_count'].value < iter.limit:
     time.sleep(1)
     print("Waiting for the jobs to finish")
+
 # Ensure that the last jobs have time to finish
 time.sleep(10)
 stopEvent.set()
@@ -298,8 +278,8 @@ for p in workers:
     p.join()
 updater.join()
 print("Threads joined")
-# Record the last results
-# processUpdateQueue()
+
+# Print the results
 print("Update Queue processed")
 print("FINISHED all %d/%d sequences!" % (SD['processed_count'].value, iter.limit))
 print("MIN DV: ", SD['CURR_MIN'].value)
@@ -317,7 +297,6 @@ for k in marked_for_removal: SD['cache_5obj'].pop(k)
 
 sorted_sequences = dict(sorted(SD['cache_5obj'].items(), key=lambda k: k[1]))
 
-# filename = 'results_{date:%Y-%m-%d_%H:%M:%S}.yml'.format(date=datetime.datetime.now())
 filename = args.results
 with open(filename, 'w') as outfile:
     for seq,val in sorted_sequences.items():

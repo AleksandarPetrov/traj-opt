@@ -5,8 +5,6 @@ dt_values = [10, 20, 40, 80]
 DV_tol = 10000
 results_files = ['results_20obj/20obj_dt%d_results.yml' % dt for dt in dt_values]
 
-
-
 def format_seq(tup):
     s = ''
     for t_idx, t in enumerate(tup):
@@ -14,7 +12,7 @@ def format_seq(tup):
             s+=' -> '
         s+=str(t).ljust(3)
     return s
-        
+
 def process(mode='dv'):
     dfs = list()
     for idx in range(len(dt_values)):
