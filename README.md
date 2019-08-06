@@ -1,6 +1,6 @@
 # Optimizing multi-rendezvous spacecraft trajectories: ∆V matrices and sequence selection
 
-Code fir the experiments.
+Code for the experiments.
 
 ## Installation
 
