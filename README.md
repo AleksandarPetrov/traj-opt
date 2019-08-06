@@ -18,17 +18,17 @@ A Docker container with everything neccessary installed is also provided at `ale
 Running an experiment consists of:
 1. Generating ∆V matrices with the `batch_Lambert_sampling.py` script, e.g.:
 ```
-python3 /files/batch_Lambert_sampling.py --dt 80 --njobs 8 --output data/DV_20obj_dt80_raw --objects 20
+python3 batch_Lambert_sampling.py --dt 80 --njobs 8 --output data/DV_20obj_dt80_raw --objects 20
 ```
 
 2. Applying wait-adjustment to the generated matrices with the `wait_adjusting.py` script, e.g.:
 ```
-python3 /files/wait_adjusting.py --njobs 8 --input data/DV_20obj_dt80_raw --output data/DV_20obj_dt80_wa
+python3 wait_adjusting.py --njobs 8 --input data/DV_20obj_dt80_raw --output data/DV_20obj_dt80_wa
 ```
 
 3. Computing sequences of 5 objects via direct concatenation with the `main.py` script, e.g.:
 ```
-python3 /files/main.py --njobs 8 --input data/DV_20obj_dt80_wa --output data/DV_20obj_dt80_dced --dvtol 10000 --objects 20 --results data/20obj_dt80_results.yml --inmemory true
+python3 main.py --njobs 8 --input data/DV_20obj_dt80_wa --output data/DV_20obj_dt80_dced --dvtol 10000 --objects 20 --results data/20obj_dt80_results.yml --inmemory true
 ```
 
 All this can be run in the provided Docker container by using the provided `run_all.sh` as a template. Note that you'd need to have Docker installed to be able to use it.
