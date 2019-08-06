@@ -16,17 +16,17 @@ A Docker container with everything neccessary installed is also provided at `ale
 ## Getting Started
 
 Running an experiment consists of:
-1. Generating ∆V matrices with the `batch_Lambert_sampling.py` script, e.g:
+1. Generating ∆V matrices with the `batch_Lambert_sampling.py` script, e.g.:
 ```
 python3 /files/batch_Lambert_sampling.py --dt 80 --njobs 8 --output data/DV_20obj_dt80_raw --objects 20
 ```
 
-2. Applying wait-adjustment to the generated matrices with the `wait_adjusting.py` script, e.g:
+2. Applying wait-adjustment to the generated matrices with the `wait_adjusting.py` script, e.g.:
 ```
 python3 /files/wait_adjusting.py --njobs 8 --input data/DV_20obj_dt80_raw --output data/DV_20obj_dt80_wa
 ```
 
-3. Computing sequences of 5 objects via direct concatenation with the `main.py` script:
+3. Computing sequences of 5 objects via direct concatenation with the `main.py` script, e.g.:
 ```
 python3 /files/main.py --njobs 8 --input data/DV_20obj_dt80_wa --output data/DV_20obj_dt80_dced --dvtol 10000 --objects 20 --results data/20obj_dt80_results.yml --inmemory true
 ```
