@@ -32,4 +32,4 @@ echo "STARTING DIRECT CONCATENATION FOR DT 20"
 docker run -it -v "$(pwd)":/data -m=20g --cpus=16 --rm aleksandarpetrov/traj-opt python3.7 /files/main.py --njobs 16 --input /data/DV_20obj_dt20_wa --output /data/DV_20obj_dt20_dced --dvtol 10000 --objects 20 --results /data/20obj_dt20_results.yml --inmemory true
 
 echo "STARTING DIRECT CONCATENATION FOR DT 10"
-docker run -it -v "$(pwd)":/data -m=20g --cpus=16 --rm aleksandarpetrov/traj-opt python3.7 /files/main.py --njobs 12 --input /data/DV_20obj_dt10_wa --output /data/DV_20obj_dt10_dced --dvtol 10000 --objects 20 --results /data/20obj_dt10_results.yml --inmemory true
+docker run -it -v "$(pwd)":/data -m=20g --cpus=16 --rm aleksandarpetrov/traj-opt python3.7 /files/main.py --njobs 16 --input /data/DV_20obj_dt10_wa --output /data/DV_20obj_dt10_dced --dvtol 10000 --objects 20 --results /data/20obj_dt10_results.yml --inmemory true
