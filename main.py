@@ -118,6 +118,7 @@ def dc_3obj(seq, SD, updateQueue):
         Cmin = np.min(C.flatten())
     else:
         Cmin = np.inf
+        C = None
 
     updateQueue.put((tuple(seq), Cmin, C))
 
